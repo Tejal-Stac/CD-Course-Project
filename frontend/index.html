@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Mini C Compiler</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f0f2f7;
+  --surface:#ffffff;
+  --surface2:#f5f6fa;
+  --border:#dde1ec;
+  --accent:#5b4ef0;
+  --accent-light:#ede9ff;
+  --text:#1a1d2e;
+  --text2:#4a4f6a;
+  --muted:#8c91ab;
+  --danger:#e03045;
+  --danger-light:#fdedf0;
+  --warn:#d97706;
+  --warn-light:#fff7e6;
+  --success:#0d8f5c;
+  --success-light:#e6f7f1;
+  --mono:'Courier New',Courier,monospace;
+  --radius:10px;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 14px rgba(0,0,0,0.05);
+}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;
+  height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);
+  padding:11px 24px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;box-shadow:var(--shadow);}
+.logo{font-size:1.1rem;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:9px;}
+.logo-icon{width:28px;height:28px;background:var(--accent);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.85rem;}
+.subtitle{color:var(--muted);font-size:0.76rem;background:var(--surface2);
+  border:1px solid var(--border);border-radius:20px;padding:3px 12px;}
+
+main{display:flex;flex:1;overflow:hidden;}
+
+/* EDITOR */
+.editor-panel{width:38%;display:flex;flex-direction:column;
+  border-right:1px solid var(--border);background:var(--surface);}
+.panel-header{display:flex;justify-content:space-between;align-items:center;
+  padding:9px 14px;border-bottom:1px solid var(--border);font-size:0.8rem;color:var(--text2);font-weight:600;}
+.panel-header button{background:transparent;border:1px solid var(--border);color:var(--muted);
+  padding:3px 10px;border-radius:5px;cursor:pointer;font-size:0.75rem;transition:all .15s;}
+.panel-header button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light);}
+#codeInput{flex:1;background:#1e2030;color:#c9d1e8;border:none;padding:14px 16px;
+  font-family:var(--mono);font-size:0.87rem;line-height:1.75;resize:none;outline:none;tab-size:4;}
+#codeInput::placeholder{color:#4a5070;}
+#compileBtn{background:var(--accent);color:#fff;border:none;padding:13px;
+  font-size:0.92rem;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;transition:background .2s;}
+#compileBtn:hover{background:#4a3fcc;}
+#compileBtn:disabled{background:#b0b5cc;cursor:not-allowed;}
+
+/* OUTPUT */
+.output-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);}
+.error-banner{background:var(--danger-light);border-bottom:2px solid var(--danger);
+  color:var(--danger);padding:8px 18px;font-size:0.82rem;font-weight:600;flex-shrink:0;}
+.error-banner.hidden{display:none;}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);background:var(--surface);
+  flex-shrink:0;overflow-x:auto;padding:0 6px;}
+.tab{background:transparent;border:none;color:var(--muted);padding:11px 15px;
+  cursor:pointer;font-size:0.8rem;border-bottom:2.5px solid transparent;
+  transition:all .15s;white-space:nowrap;font-weight:500;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+.tab-content{display:none;flex:1;overflow-y:auto;padding:18px;flex-direction:column;gap:14px;}
+.tab-content.active{display:flex;}
+.empty-note{color:var(--muted);font-style:italic;font-size:0.86rem;text-align:center;padding:50px 0;}
+
+/* STAT BOX */
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px 22px;display:flex;align-items:center;gap:18px;box-shadow:var(--shadow);}
+.stat-icon{width:52px;height:52px;background:var(--accent-light);border-radius:13px;
+  display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;}
+.stat-number{font-size:2.8rem;font-weight:800;color:var(--accent);line-height:1;}
+.stat-label{color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;margin-top:4px;}
+
+/* TOKEN LIST */
+.section-title{font-size:0.73rem;font-weight:700;color:var(--text2);
+  text-transform:uppercase;letter-spacing:0.8px;margin-bottom:2px;
+  display:flex;align-items:center;gap:6px;}
+.section-badge{background:var(--accent-light);color:var(--accent);font-size:0.7rem;
+  padding:1px 8px;border-radius:20px;font-weight:700;}
+.token-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.token-head{display:grid;grid-template-columns:40px 155px 1fr 50px;
+  padding:8px 14px;background:var(--surface2);border-bottom:2px solid var(--border);
+  font-size:0.7rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;}
+.token-row{display:grid;grid-template-columns:40px 155px 1fr 50px;
+  align-items:center;padding:6px 14px;border-bottom:1px solid var(--border);
+  font-size:0.81rem;transition:background .1s;}
+.token-row:last-child{border-bottom:none;}
+.token-row:hover{background:var(--surface2);}
+.tok-idx{color:var(--muted);font-size:0.7rem;}
+.tok-badge{display:inline-flex;align-items:center;padding:2px 9px;border-radius:20px;
+  font-size:0.68rem;font-weight:700;font-family:var(--mono);
+  white-space:nowrap;max-width:145px;overflow:hidden;text-overflow:ellipsis;}
+.tok-lex{font-family:var(--mono);font-size:0.8rem;color:var(--text);
+  background:var(--surface2);border-radius:4px;padding:1px 7px;
+  display:inline-block;max-width:95%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tok-line{color:var(--muted);font-size:0.7rem;text-align:right;}
+
+/* token type colors */
+.tt-KEYWORD  {background:#ede9ff;color:#4c35cc;border:1px solid #c4b8f8;}
+.tt-IDENTIFIER{background:#e6f7f1;color:#0a6b45;border:1px solid #9de8c8;}
+.tt-NUMBER   {background:#fff4e0;color:#a05c00;border:1px solid #fcd08a;}
+.tt-OPERATOR {background:#fde8fb;color:#8b1fa3;border:1px solid #e6a8f2;}
+.tt-PUNCTUATION{background:#e8f4ff;color:#1455a0;border:1px solid #93c5fd;}
+.tt-STRING   {background:#fdedf0;color:#b02030;border:1px solid #f9a8b4;}
+.tt-CHAR     {background:#fff0f0;color:#b02030;border:1px solid #f9a8b4;}
+.tt-COMMENT  {background:#f0f0f0;color:#666;border:1px solid #ccc;}
+.tt-UNKNOWN  {background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+
+/* SYMBOL TABLE */
+.table-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+table{width:100%;border-collapse:collapse;font-size:0.82rem;}
+th{background:var(--surface2);color:var(--text2);padding:10px 14px;text-align:left;
+  font-weight:700;border-bottom:2px solid var(--border);
+  font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;}
+td{padding:9px 14px;border-bottom:1px solid var(--border);color:var(--text);}
+tr:last-child td{border-bottom:none;}
+tr:hover td{background:var(--surface2);}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;}
+.badge-func{background:#ede9ff;color:#4c35cc;border:1px solid #c4b8f8;}
+.badge-param{background:#e6f7f1;color:#0a6b45;border:1px solid #9de8c8;}
+.badge-var{background:#fff4e0;color:#a05c00;border:1px solid #fcd08a;}
+.type-int{color:#4c35cc;font-weight:700;}
+.type-float{color:#0a6b45;font-weight:700;}
+.type-char{color:#a05c00;font-weight:700;}
+.type-void{color:var(--muted);}
+.scope-g{color:#8b1fa3;font-weight:700;}
+.scope-l{color:#0a6b45;}
+.guide-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:14px 16px;font-size:0.79rem;color:var(--text2);line-height:2;box-shadow:var(--shadow);}
+
+/* PARSE TREE */
+#treeScroll{overflow:auto;flex:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);min-height:350px;box-shadow:var(--shadow);}
+#treeWrap{display:inline-flex;flex-direction:column;align-items:center;padding:30px 40px;}
+.t-box{padding:7px 16px;border-radius:8px;font-size:0.75rem;font-weight:600;
+  white-space:nowrap;cursor:default;border:1.5px solid;transition:all .15s;}
+.t-box:hover{filter:brightness(0.93);transform:scale(1.05);}
+.t-box.c0{background:#dbeafe;border-color:#60a5fa;color:#1e3a8a;}
+.t-box.c1{background:#d1fae5;border-color:#34d399;color:#064e3b;}
+.t-box.c2{background:#ede9fe;border-color:#a78bfa;color:#4c1d95;}
+.t-box.c3{background:#fef3c7;border-color:#fbbf24;color:#78350f;}
+.t-box.c4{background:#cffafe;border-color:#22d3ee;color:#164e63;}
+.t-box.c5{background:#ffe4e6;border-color:#fb7185;color:#881337;}
+.t-node-col{display:flex;flex-direction:column;align-items:center;}
+.t-children-row{display:flex;flex-direction:row;align-items:flex-start;justify-content:center;gap:4px;width:100%;}
+.t-connector-svg{display:block;flex-shrink:0;overflow:visible;}
+.legend{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0;}
+.leg{display:flex;align-items:center;gap:6px;font-size:0.72rem;color:var(--text2);}
+.leg-dot{width:12px;height:12px;border-radius:3px;border:1.5px solid;flex-shrink:0;}
+
+/* TAC */
+.tac-card{background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.tac-row{display:flex;align-items:center;padding:7px 14px;
+  border-bottom:1px solid var(--border);font-family:var(--mono);font-size:0.83rem;gap:14px;}
+.tac-row:last-child{border-bottom:none;}
+.tac-row:hover{background:var(--surface2);}
+.tac-idx{color:var(--muted);min-width:34px;font-size:0.73rem;}
+.tac-instr{color:var(--text);}
+.tac-f{background:#f5f3ff;}.tac-f .tac-instr{color:var(--accent);font-style:italic;}
+.tac-r{background:var(--warn-light);}.tac-r .tac-instr{color:var(--warn);}
+.tac-l{background:var(--success-light);}.tac-l .tac-instr{color:var(--success);font-weight:700;}
+
+/* ERRORS */
+.err-card{border-left:4px solid;border-radius:0 8px 8px 0;
+  padding:12px 16px;display:flex;gap:12px;align-items:flex-start;box-shadow:var(--shadow);}
+.err-card.LEXICAL{border-color:var(--warn);background:var(--warn-light);}
+.err-card.SYNTAX{border-color:var(--danger);background:var(--danger-light);}
+.err-card.SEMANTIC{border-color:#8b1fa3;background:#f8ecff;}
+.err-badge{padding:2px 9px;border-radius:20px;font-size:0.7rem;font-weight:700;white-space:nowrap;flex-shrink:0;}
+.err-badge.LEXICAL{background:#fff4e0;color:var(--warn);border:1px solid #fcd08a;}
+.err-badge.SYNTAX{background:var(--danger-light);color:var(--danger);border:1px solid #f9a8b4;}
+.err-badge.SEMANTIC{background:#f8ecff;color:#8b1fa3;border:1px solid #e6a8f2;}
+.err-line{color:var(--muted);font-size:0.78rem;flex-shrink:0;}
+.err-msg{color:var(--text);font-size:0.84rem;}
+
+.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.4);
+  border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+.hidden{display:none!important;}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+::-webkit-scrollbar-thumb:hover{background:var(--accent);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚙</div>
+   C Compiler for Functions 
+  </div>
+  <div class="subtitle">Lexer · Parser · Semantic · TAC</div>
+</header>
+
+<main>
+  <section class="editor-panel">
+    <div class="panel-header">
+      <span> C Source Code</span>
+      <button id="clearBtn">Clear</button>
+    </div>
+    <textarea id="codeInput" spellcheck="false" placeholder="// Type your C functions here...
+int add(int a, int b) {
+    int result;
+    result = a + b;
+    return result;
+}"></textarea>
+    <button id="compileBtn">
+      <span id="btnText">▶ Compile</span>
+      <span id="btnSpinner" class="spinner hidden"></span>
+    </button>
+  </section>
+
+  <section class="output-panel">
+    <div id="errorBanner" class="error-banner hidden"></div>
+    <div class="tab-bar">
+      <button class="tab active" data-tab="tokens">🔢 Tokens</button>
+      <button class="tab" data-tab="symtab">📋 Symbol Table</button>
+      <button class="tab" data-tab="parsetree">🌲 Parse Tree</button>
+      <button class="tab" data-tab="tac">⚡ TAC</button>
+      <button class="tab" data-tab="errors">🚨 Errors</button>
+    </div>
+
+    <!-- TOKENS TAB -->
+    <div class="tab-content active" id="tab-tokens">
+      <div class="stat-box">
+        <div class="stat-icon">🔢</div>
+        <div>
+          <div class="stat-number" id="tokenCount">—</div>
+          <div class="stat-label">Total Tokens / Lexemes</div>
+        </div>
+      </div>
+
+      <div id="tokenListWrap" class="hidden">
+        <div class="section-title">
+          Token List
+          <span class="section-badge" id="tokenBadge">0</span>
+        </div>
+        <div class="token-card">
+          <div class="token-head">
+            <span>#</span><span>Token Type</span><span>Lexeme</span><span>Line</span>
+          </div>
+          <div id="tokenListBody"></div>
+        </div>
+      </div>
+
+      <p class="empty-note hidden" id="tokenEmpty">Enter C code and click Compile.</p>
+      <p class="empty-note" id="tokenPlaceholder">Enter C code and click Compile.</p>
+    </div>
+
+    <!-- SYMBOL TABLE TAB -->
+    <div class="tab-content" id="tab-symtab">
+      <div class="table-card">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Kind</th><th>Scope</th><th>Line</th></tr></thead>
+          <tbody id="symtabBody">
+            <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Compile to see symbol table</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="guide-box">
+        <strong style="color:var(--accent)">📖 Column Guide</strong><br>
+        <b style="color:#4c35cc">Type</b> — data type (int, float, char, void)<br>
+        <b style="color:#0a6b45">Kind</b> — <span style="color:#4c35cc">function</span> = declared function &nbsp;|&nbsp; <span style="color:#0a6b45">parameter</span> = argument &nbsp;|&nbsp; <span style="color:#a05c00">variable</span> = local var<br>
+        <b style="color:#8b1fa3">Scope 0</b> = global &nbsp;|&nbsp; <b style="color:#0a6b45">Scope 1+</b> = local inside function
+      </div>
+    </div>
+
+    <!-- PARSE TREE TAB -->
+    <div class="tab-content" id="tab-parsetree">
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:#dbeafe;border-color:#60a5fa"></div>Program</div>
+        <div class="leg"><div class="leg-dot" style="background:#d1fae5;border-color:#34d399"></div>Function</div>
+        <div class="leg"><div class="leg-dot" style="background:#ede9fe;border-color:#a78bfa"></div>Statement</div>
+        <div class="leg"><div class="leg-dot" style="background:#fef3c7;border-color:#fbbf24"></div>Expression</div>
+        <div class="leg"><div class="leg-dot" style="background:#cffafe;border-color:#22d3ee"></div>Literal</div>
+      </div>
+      <div id="treeScroll"><div id="treeWrap">
+        <p class="empty-note">Compile to see the visual parse tree</p>
+      </div></div>
+    </div>
+
+    <!-- TAC TAB -->
+    <div class="tab-content" id="tab-tac">
+      <div class="tac-card" id="tacOut">
+        <p style="padding:30px;text-align:center;color:var(--muted)">Compile to see three address code</p>
+      </div>
+    </div>
+
+    <!-- ERRORS TAB -->
+    <div class="tab-content" id="tab-errors">
+      <div id="errorsOut"><p class="empty-note">No errors yet</p></div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ════════════════════════════════════════════
+   CLIENT-SIDE C LEXER
+   Tokenises the source directly in the browser
+   so the token list is ALWAYS shown even if the
+   server returns only token_count.
+   ════════════════════════════════════════════ */
+const C_KEYWORDS = new Set([
+  'auto','break','case','char','const','continue','default','do','double',
+  'else','enum','extern','float','for','goto','if','inline','int','long',
+  'register','restrict','return','short','signed','sizeof','static','struct',
+  'switch','typedef','union','unsigned','void','volatile','while'
+]);
+
+function lexC(src) {
+  const tokens = [];
+  let i = 0, line = 1;
+
+  while (i < src.length) {
+    /* newlines */
+    if (src[i] === '\n') { line++; i++; continue; }
+    /* whitespace */
+    if (/\s/.test(src[i])) { i++; continue; }
+
+    /* line comment */
+    if (src[i] === '/' && src[i+1] === '/') {
+      let j = i;
+      while (i < src.length && src[i] !== '\n') i++;
+      tokens.push({ type:'COMMENT', lexeme: src.slice(j,i), line });
+      continue;
+    }
+    /* block comment */
+    if (src[i] === '/' && src[i+1] === '*') {
+      let j = i, startLine = line;
+      i += 2;
+      while (i < src.length && !(src[i]==='*' && src[i+1]==='/')) {
+        if (src[i]==='\n') line++; i++;
+      }
+      i += 2;
+      tokens.push({ type:'COMMENT', lexeme: src.slice(j,i), line: startLine });
+      continue;
+    }
+    /* string literal */
+    if (src[i] === '"') {
+      let j = i++, startLine = line;
+      while (i < src.length && src[i] !== '"') {
+        if (src[i]==='\\') i++;
+        if (src[i]==='\n') line++;
+        i++;
+      }
+      i++;
+      tokens.push({ type:'STRING', lexeme: src.slice(j,i), line: startLine });
+      continue;
+    }
+    /* char literal */
+    if (src[i] === "'") {
+      let j = i++;
+      if (src[i]==='\\') i++;
+      i++; i++; /* closing ' */
+      tokens.push({ type:'CHAR', lexeme: src.slice(j,i), line });
+      continue;
+    }
+    /* number */
+    if (/\d/.test(src[i]) || (src[i]==='.' && /\d/.test(src[i+1]))) {
+      let j = i;
+      while (i < src.length && /[\d.xXa-fA-FuUlL]/.test(src[i])) i++;
+      tokens.push({ type:'NUMBER', lexeme: src.slice(j,i), line });
+      continue;
+    }
+    /* identifier / keyword */
+    if (/[a-zA-Z_]/.test(src[i])) {
+      let j = i;
+      while (i < src.length && /\w/.test(src[i])) i++;
+      const word = src.slice(j, i);
+      tokens.push({ type: C_KEYWORDS.has(word) ? 'KEYWORD' : 'IDENTIFIER', lexeme: word, line });
+      continue;
+    }
+    /* multi-char operators */
+    const two = src.slice(i, i+2);
+    if (['==','!=','<=','>=','&&','||','++','--','<<','>>','+=','-=','*=','/=','%=','&=','|=','^=','->'].includes(two)) {
+      tokens.push({ type:'OPERATOR', lexeme: two, line }); i += 2; continue;
+    }
+    /* single-char operator or punctuation */
+    const ch = src[i];
+    if ('+-*/%=<>!&|^~'.includes(ch)) {
+      tokens.push({ type:'OPERATOR', lexeme: ch, line }); i++; continue;
+    }
+    if (';,(){}[]:.?'.includes(ch)) {
+      tokens.push({ type:'PUNCTUATION', lexeme: ch, line }); i++; continue;
+    }
+    /* unknown */
+    tokens.push({ type:'UNKNOWN', lexeme: ch, line }); i++;
+  }
+  return tokens;
+}
+
+/* ════ TABS ════ */
+document.querySelectorAll('.tab').forEach(t =>
+  t.addEventListener('click', () => switchTab(t.dataset.tab)));
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`[data-tab="${name}"]`)?.classList.add('active');
+  document.getElementById(`tab-${name}`)?.classList.add('active');
+}
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('codeInput').value = ''; resetAll();
+});
+
+/* ════ PARSE TREE ════ */
+function nodeColor(label) {
+  const l = label.toLowerCase();
+  if (l === 'program') return 'c0';
+  if (l.includes('function') || l.includes('funcdef') || l.includes('funchdr')) return 'c1';
+  if (l.includes('stmt') || l.includes('block') || l.includes('return') ||
+      l.includes('if') || l.includes('while') || l.includes('for')) return 'c2';
+  if (l.includes('assign') || l.includes('expr') || l.includes('call') ||
+      l.includes('arg') || l.includes('param')) return 'c3';
+  if (l.includes('literal') || l.includes('num') || l.includes('const')) return 'c4';
+  return 'c5';
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function buildNode(node, depth) {
+  if (!node) return '';
+  const col = nodeColor(node.label);
+  const hasKids = node.children && node.children.length > 0;
+  if (!hasKids)
+    return `<div class="t-node-col"><div class="t-box ${col}" title="Line: ${node.line||'?'}">${esc(node.label)}</div></div>`;
+  const ch = node.children.map(c => buildNode(c, depth+1)).join('');
+  return `<div class="t-node-col">
+    <div class="t-box ${col}" title="Line: ${node.line||'?'}">${esc(node.label)}</div>
+    <svg class="t-connector-svg" data-needs-draw="1" width="10" height="40" style="width:100%;min-width:120px"></svg>
+    <div class="t-children-row">${ch}</div>
+  </div>`;
+}
+
+function drawConnectors() {
+  const ns = 'http://www.w3.org/2000/svg';
+  function mkMarker(svg) {
+    let defs = svg.querySelector('defs');
+    if (!defs) { defs = document.createElementNS(ns,'defs'); svg.insertBefore(defs, svg.firstChild); }
+    if (defs.querySelector('#am')) return;
+    const mk = document.createElementNS(ns,'marker');
+    mk.setAttribute('id','am'); mk.setAttribute('viewBox','0 0 10 10');
+    mk.setAttribute('refX','8'); mk.setAttribute('refY','5');
+    mk.setAttribute('markerWidth','6'); mk.setAttribute('markerHeight','6');
+    mk.setAttribute('orient','auto-start-reverse');
+    const p = document.createElementNS(ns,'path');
+    p.setAttribute('d','M2 2L8 5L2 8'); p.setAttribute('fill','none');
+    p.setAttribute('stroke','#7c88c0'); p.setAttribute('stroke-width','1.5');
+    p.setAttribute('stroke-linecap','round'); p.setAttribute('stroke-linejoin','round');
+    mk.appendChild(p); defs.appendChild(mk);
+  }
+  document.querySelectorAll('svg.t-connector-svg[data-needs-draw]').forEach(svg => {
+    const col = svg.closest('.t-node-col');
+    if (!col) return;
+    const pBox = col.querySelector(':scope>.t-box');
+    const cRow = col.querySelector(':scope>.t-children-row');
+    if (!pBox || !cRow) return;
+    const kids = Array.from(cRow.children).filter(e => e.classList.contains('t-node-col'));
+    if (!kids.length) return;
+    const sr = svg.getBoundingClientRect(), pr = pBox.getBoundingClientRect();
+    if (sr.width < 1) return;
+    const pCx = pr.left + pr.width/2 - sr.left, pBot = pr.bottom - sr.top;
+    const cbs = kids.map(k => {
+      const b = k.querySelector(':scope>.t-box'); if (!b) return null;
+      const r = b.getBoundingClientRect();
+      return { cx: r.left + r.width/2 - sr.left, top: r.top - sr.top };
+    }).filter(Boolean);
+    if (!cbs.length) return;
+    const midY = pBot + (cbs[0].top - pBot) * 0.5;
+    const svgH = Math.max(40, cbs[0].top + 4);
+    svg.setAttribute('height', svgH);
+    svg.setAttribute('viewBox', `0 0 ${sr.width} ${svgH}`);
+    svg.innerHTML = ''; svg.removeAttribute('data-needs-draw'); mkMarker(svg);
+    const S = '#b8c0d8', W = '1.5';
+    const addLine = (x1,y1,x2,y2,me) => {
+      const ln = document.createElementNS(ns,'line');
+      ln.setAttribute('x1',x1); ln.setAttribute('y1',y1);
+      ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
+      ln.setAttribute('stroke',S); ln.setAttribute('stroke-width',W);
+      ln.setAttribute('stroke-linecap','round');
+      if (me) ln.setAttribute('marker-end','url(#am)');
+      svg.appendChild(ln);
+    };
+    addLine(pCx, pBot, pCx, midY, false);
+    if (cbs.length > 1) addLine(Math.min(...cbs.map(c=>c.cx)), midY, Math.max(...cbs.map(c=>c.cx)), midY, false);
+    cbs.forEach(cb => addLine(cb.cx, midY, cb.cx, cb.top-2, true));
+  });
+}
+
+/* ════ TAC ════ */
+function tacText(i) {
+  const {op,result:r,arg1:a,arg2:b} = i;
+  const m = {0:`${r}=${a}`,1:`${r}=${a}+${b}`,2:`${r}=${a}-${b}`,3:`${r}=${a}*${b}`,
+    4:`${r}=${a}/${b}`,5:`${r}=${a}%${b}`,6:`${r}=-${a}`,7:`${r}=${a}<${b}`,
+    8:`${r}=${a}>${b}`,9:`${r}=${a}<=${b}`,10:`${r}=${a}>=${b}`,11:`${r}=${a}==${b}`,
+    12:`${r}=${a}!=${b}`,13:`${r}=${a}&&${b}`,14:`${r}=${a}||${b}`,15:`${r}=!${a}`,
+    16:`${r}:`,17:`goto ${r}`,18:`if_false ${a} goto ${r}`,19:`${r}=call ${a},${b}`,
+    20:`param ${a}`,21:`return ${a}`,22:`func_begin ${a}`,23:`func_end ${a}`};
+  return m[op] || `op_${op}`;
+}
+function tacCls(op) { return op===22||op===23?'tac-f':op===21?'tac-r':op===16?'tac-l':''; }
+
+/* ════ RENDERERS ════ */
+function renderTokens(serverCount, serverTokens, sourceCode) {
+  /* Prefer server tokens if provided, else run client lexer */
+  let tokens = (serverTokens && serverTokens.length > 0)
+    ? serverTokens
+    : (sourceCode ? lexC(sourceCode) : []);
+
+  const count = serverCount || tokens.length;
+
+  document.getElementById('tokenCount').textContent = count;
+  document.getElementById('tokenPlaceholder').classList.add('hidden');
+
+  const wrap = document.getElementById('tokenListWrap');
+  const body = document.getElementById('tokenListBody');
+  document.getElementById('tokenBadge').textContent = tokens.length;
+
+  if (!tokens.length) { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+
+  body.innerHTML = tokens.map((tok, i) => {
+    const type   = typeof tok === 'object' ? (tok.type   || 'UNKNOWN') : 'TOKEN';
+    const lexeme = typeof tok === 'object' ? (tok.lexeme || tok.value || '') : String(tok);
+    const line   = typeof tok === 'object' ? (tok.line   || '') : '';
+    const cls    = 'tt-' + type.toUpperCase().replace(/\s+/g,'_');
+    return `<div class="token-row">
+      <span class="tok-idx">${i+1}</span>
+      <span class="tok-badge ${cls}">${esc(type)}</span>
+      <span class="tok-lex">${esc(lexeme)}</span>
+      <span class="tok-line">${line ? 'L'+line : ''}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderSymtab(symbols) {
+  const tbody = document.getElementById('symtabBody');
+  if (!symbols||!symbols.length) {
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No symbols</td></tr>';
+    return;
+  }
+  tbody.innerHTML = symbols.map((s,i) => {
+    const kb = s.kind==='function'?`<span class="badge badge-func">function</span>`:
+               s.kind==='parameter'?`<span class="badge badge-param">parameter</span>`:
+               `<span class="badge badge-var">variable</span>`;
+    const tc = s.type==='int'?'type-int':s.type==='float'?'type-float':
+               s.type==='char'?'type-char':s.type==='void'?'type-void':'';
+    const sc = s.scope===0
+      ?`<span class="scope-g">0 (global)</span>`
+      :`<span class="scope-l">${s.scope} (local)</span>`;
+    return `<tr><td>${i+1}</td><td><strong>${s.name}</strong></td>
+      <td><span class="${tc}">${s.type}</span></td>
+      <td>${kb}</td><td>${sc}</td><td>${s.line}</td></tr>`;
+  }).join('');
+}
+
+function renderParseTree(root) {
+  const wrap = document.getElementById('treeWrap');
+  if (!root) { wrap.innerHTML='<p class="empty-note">No parse tree generated</p>'; return; }
+  wrap.innerHTML = buildNode(root, 0);
+  requestAnimationFrame(() => setTimeout(drawConnectors, 100));
+}
+
+function renderTAC(tac) {
+  const wrap = document.getElementById('tacOut');
+  if (!tac||!tac.length) {
+    wrap.innerHTML='<p style="padding:30px;text-align:center;color:var(--muted)">No TAC generated</p>'; return;
+  }
+  wrap.innerHTML = tac.map(i =>
+    `<div class="tac-row ${tacCls(i.op)}"><span class="tac-idx">${i.index}.</span><span class="tac-instr">${tacText(i)}</span></div>`
+  ).join('');
+}
+
+function renderErrors(errors) {
+  const out=document.getElementById('errorsOut'),
+        banner=document.getElementById('errorBanner'),
+        errTab=document.querySelector('[data-tab="errors"]');
+  if (!errors||!errors.length) {
+    out.innerHTML=`<div style="text-align:center;padding:40px;color:var(--success);font-size:1.05rem;font-weight:600">✓ Compiled successfully!</div>`;
+    banner.classList.add('hidden'); errTab.textContent='🚨 Errors'; return;
+  }
+  banner.classList.remove('hidden');
+  banner.textContent=`⚠  ${errors.length} error${errors.length>1?'s':''} found`;
+  errTab.textContent=`🚨 Errors (${errors.length})`;
+  switchTab('errors');
+  out.innerHTML = errors.map(e =>
+    `<div class="err-card ${e.kind}"><span class="err-badge ${e.kind}">${e.kind}</span><span class="err-line">Line ${e.line}</span><span class="err-msg">${e.message}</span></div>`
+  ).join('');
+}
+
+function resetAll() {
+  document.getElementById('tokenCount').textContent='—';
+  document.getElementById('tokenPlaceholder').classList.remove('hidden');
+  document.getElementById('tokenListWrap').classList.add('hidden');
+  document.getElementById('tokenListBody').innerHTML='';
+  document.getElementById('symtabBody').innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">Compile to see symbol table</td></tr>';
+  document.getElementById('treeWrap').innerHTML='<p class="empty-note">Compile to see the visual parse tree</p>';
+  document.getElementById('tacOut').innerHTML='<p style="padding:30px;text-align:center;color:var(--muted)">Compile to see three address code</p>';
+  document.getElementById('errorsOut').innerHTML='<p class="empty-note">No errors yet</p>';
+  document.getElementById('errorBanner').classList.add('hidden');
+  document.querySelector('[data-tab="errors"]').textContent='🚨 Errors';
+  switchTab('tokens');
+}
+
+document.querySelector('[data-tab="parsetree"]').addEventListener('click', () => {
+  setTimeout(() => {
+    if (document.querySelectorAll('svg.t-connector-svg[data-needs-draw]').length) drawConnectors();
+  }, 120);
+});
+
+/* ════ COMPILE ════ */
+document.getElementById('compileBtn').addEventListener('click', async () => {
+  const code = document.getElementById('codeInput').value.trim();
+  if (!code) { alert('Please enter some C code first!'); return; }
+
+  const btn=document.getElementById('compileBtn'),
+        btnText=document.getElementById('btnText'),
+        spinner=document.getElementById('btnSpinner');
+  btn.disabled=true; btnText.textContent='Compiling…'; spinner.classList.remove('hidden');
+
+  try {
+    const res  = await fetch('/compile', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({code})
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) { alert('Server error: '+(data.error||'unknown')); return; }
+
+    /* Pass source code so client lexer can run as fallback */
+    renderTokens(data.token_count||0, data.tokens||data.token_list||[], code);
+    renderSymtab(data.symbol_table||[]);
+    renderParseTree(data.parse_tree||null);
+    renderTAC(data.tac||[]);
+    renderErrors(data.errors||[]);
+    if (!data.errors||!data.errors.length) switchTab('tokens');
+  } catch(e) { alert('Network error: '+e.message); }
+  finally { btn.disabled=false; btnText.textContent='▶ Compile'; spinner.classList.add('hidden'); }
+});
+</script>
+</body>
+</html>
